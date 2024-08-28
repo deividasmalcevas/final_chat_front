@@ -12,7 +12,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const { login } = useAuthStore();
+    const { setIsLoggedIn } = useAuthStore();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -24,9 +24,8 @@ const Login = () => {
                 identifier: emailOrUsername,
                 password: password,
             });
-
-            if (res.token) {
-                login(res.token);
+            if (res.success) {
+                setIsLoggedIn(true)
                 setSuccessMessage('Login successful! Redirecting...');
                 await router.push('/dashboard');
             } else {

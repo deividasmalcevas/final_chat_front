@@ -5,12 +5,11 @@ import Link from 'next/link';
 import useAuthStore from '@/stores/authStore';
 
 const Toolbar = () => {
-    const { isLoggedIn, setIsLoggedIn, logout } = useAuthStore();
+    const { isLoggedIn, checkLoginStatus, logout } = useAuthStore();
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        setIsLoggedIn(!!token);
-    }, [setIsLoggedIn]);
+        checkLoginStatus();
+    }, [checkLoginStatus]);
 
     const handleLogout = () => {
         logout();
@@ -28,7 +27,7 @@ const Toolbar = () => {
                 <nav className="flex space-x-4">
                     {isLoggedIn ? (
                         <>
-                            <Link href="/" className="hover:text-gray-300">Dashboard</Link>
+                            <Link href="/dashboard" className="hover:text-gray-300">Dashboard</Link>
                             <Link href="/profile" className="hover:text-gray-300">Profile</Link>
                         </>
                     ) : (
@@ -40,7 +39,7 @@ const Toolbar = () => {
 
                 {isLoggedIn ? (
                     <button className="button-62" role="button">
-                        <Link href="/" onClick={handleLogout} className="hover:text-gray-300">Logout</Link>
+                        <Link href="/login" onClick={handleLogout} className="hover:text-gray-300">Logout</Link>
                     </button>
                 ) : (
                     <div className="flex gap-3">

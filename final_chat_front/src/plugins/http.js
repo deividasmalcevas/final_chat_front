@@ -11,6 +11,7 @@ const http = {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(data),
+            credentials: 'include',
         };
         return new Promise((resolve) => {
             fetch(rootUrl + url, options)
@@ -20,88 +21,28 @@ const http = {
                 });
         });
     },
-    postAuth: (url, data, token) => {
+    get: (url, includeCredentials = false) => {
         const options = {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: token,
-            },
-            body: JSON.stringify(data),
+            method: 'GET',
         };
-        return new Promise((resolve) => {
-            fetch(rootUrl + url, options)
-                .then((res) => res.json())
-                .then((res) => {
-                    resolve(res);
-                });
-        });
-    },
 
-    deleteAuth: (url, token) => {
-        const options = {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: token,
-            },
-        };
-        return new Promise((resolve) => {
-            fetch(rootUrl + url, options)
-                .then((res) => res.json())
-                .then((res) => {
-                    resolve(res);
-                });
-        });
-    },
+        if (includeCredentials) {
+            options.credentials = 'include'; // Include credentials if requested
+        }
 
-    postFormData: (url, data, token) => {
-        const options = {
-            method: "POST",
-            headers: {
-                Authorization: token,  // Include token in the headers
-            },
-            body: data,
-        };
         return new Promise((resolve, reject) => {
             fetch(rootUrl + url, options)
-                .then(async (res) => {
+                .then((res) => {
                     if (!res.ok) {
-                        const errorText = await res.text();
-                        reject(new Error(errorText));
-                    } else {
-                        return res.json();
+                        return reject(new Error(`HTTP error! status: ${res.status}`));
                     }
+                    return res.json();
                 })
                 .then((res) => {
                     resolve(res);
                 })
-                .catch((error) => reject(error));
-        });
-    },
-    get: (url) => {
-        return new Promise((resolve) => {
-            fetch(rootUrl + url)
-                .then((res) => res.json())
-                .then((res) => {
-                    resolve(res);
-                });
-        });
-    },
-    getAuth: (url, token, userId) => {
-        const options = {
-            method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: token,
-                "userId": userId,
-            },
-        };
-        return new Promise((resolve) => {
-            fetch(rootUrl + url, options)
-                .then((res) => res.json())
-                .then((res) => {
-                    resolve(res);
+                .catch((error) => {
+                    reject(error);
                 });
         });
     },

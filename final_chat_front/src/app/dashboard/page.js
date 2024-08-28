@@ -1,15 +1,35 @@
 "use client";
 
-import React from 'react';
+import React, {useEffect} from 'react';
 import { useRouter } from 'next/navigation';
+import ChatRoom from "@/components/ChatRoom";
+import http from '@/plugins/http';
+import {checkLoginStatus} from "@/plugins/login";
+import useAuthStore from "@/stores/authStore";
 
 const Dashboard = () => {
     const router = useRouter();
+    const { setIsLoggedIn } = useAuthStore();
 
-    const handleLogout = () => {
-        localStorage.removeItem('token'); // Clear the token
-        router.push('/login'); // Redirect to the login page
+    const getProtectedData = async () => {
+        try {
+            const data = await http.get('/private/protected', true);
+
+            console.log(data.message);
+        } catch (error) {
+            if (!checkLoginStatus()) {
+                setIsLoggedIn(false)
+                router.push('/login');
+            }
+            console.error('Error fetching protected data:', error);
+        }
     };
+    useEffect(() => {
+        if (!checkLoginStatus()) {
+            setIsLoggedIn(false)
+            router.push('/login');
+        }
+    }, []);
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
@@ -18,6 +38,8 @@ const Dashboard = () => {
                 <p className="text-center text-gray-600">
                     Welcome to your dashboard! Here you can manage your account and settings.
                 </p>
+                <button onClick={getProtectedData} >a</button>
+                <ChatRoom />
             </div>
         </div>
     );
