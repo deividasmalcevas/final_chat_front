@@ -1,15 +1,16 @@
 import { create } from 'zustand';
+import Cookies from 'js-cookie';
 
 const useAuthStore = create((set) => ({
     isLoggedIn: false,
     setIsLoggedIn: (status) => set({ isLoggedIn: status }),
     logout: () => {
-        localStorage.removeItem('token');
+        Cookies.remove('isLoggedIn'); // Remove the token cookie
         set({ isLoggedIn: false });
     },
-    login: (token) => {
-        localStorage.setItem('token', token);
-        set({ isLoggedIn: true });
+    checkLoginStatus: () => {
+        const token = Cookies.get('isLoggedIn'); // Check for the token cookie
+        set({ isLoggedIn: !!token });
     },
 }));
 
