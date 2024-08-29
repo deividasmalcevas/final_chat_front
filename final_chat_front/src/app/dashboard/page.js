@@ -13,7 +13,7 @@ const Dashboard = () => {
 
     const getProtectedData = async () => {
         try {
-            const data = await http.get('/private/protected', true);
+            const data = await http.get('/private/get-user', true);
 
             console.log(data.message);
         } catch (error) {
@@ -25,6 +25,7 @@ const Dashboard = () => {
         }
     };
     useEffect(() => {
+
         if (!checkLoginStatus()) {
             setIsLoggedIn(false)
             router.push('/login');
