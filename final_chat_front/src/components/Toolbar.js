@@ -1,18 +1,55 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import useAuthStore from '@/stores/authStore';
+import http from '@/plugins/http';
+import { useRouter } from 'next/navigation';
 
 const Toolbar = () => {
-    const { isLoggedIn, checkLoginStatus, logout } = useAuthStore();
+    const router = useRouter();
+
+    const { isLoggedIn, checkLoginStatus, logout, change } = useAuthStore();
+    const [error, setError] = useState(null);
+    const [avatar, setAvatar] = useState(null);
+    const [username, setUsername] = useState(null);
+    const [menuOpen, setMenuOpen] = useState(false); // State to control dropdown visibility
+
+    useEffect(() => {
+        if (isLoggedIn || change) {
+            const getUser = async () => {
+                try {
+                    const res = await http.get('/private/get-user', true);
+                    if (res.error) return setError(res.error);
+                    setAvatar(res.data.avatar);
+                    setUsername(res.data.username);
+                } catch (error) {
+                    console.error('Error fetching protected data:', error);
+                }
+            };
+            getUser();
+        } else {
+            setAvatar(null);
+            setUsername(null);
+        }
+    }, [isLoggedIn, change]);
 
     useEffect(() => {
         checkLoginStatus();
     }, [checkLoginStatus]);
 
-    const handleLogout = () => {
+    const handleLogout = async ()  => {
+        const res = await http.post('/private/logout', { username: username });
+        if (res.error) return setError(res.error);
         logout();
+        setMenuOpen(false)
+        setAvatar(null)
+        setUsername(null);
+        router.push('/login');
+    };
+
+    const toggleMenu = () => {
+        setMenuOpen(!menuOpen);
     };
 
     return (
@@ -38,9 +75,28 @@ const Toolbar = () => {
                 </nav>
 
                 {isLoggedIn ? (
-                    <button className="button-62" role="button">
-                        <Link href="/login" onClick={handleLogout} className="hover:text-gray-300">Logout</Link>
-                    </button>
+                    <div className="relative">
+                        <div className="flex gap-3 items-center">
+                            <img
+                                src={avatar}
+                                alt="Avatar"
+                                className="h-10 mr-2 rounded-full cursor-pointer"
+                                onClick={toggleMenu}
+                            />
+                        </div>
+
+                        {menuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 text-black">
+                                <Link href="/profile" className="block px-4 py-2 hover:bg-gray-200">Profile</Link>
+                                <Link href="/settings" className="block px-4 py-2 hover:bg-gray-200">Settings</Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="block w-full text-left px-4 py-2 hover:bg-gray-200">
+                                    Logout
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <div className="flex gap-3">
                         <button className="button-62" role="button">

@@ -4,20 +4,31 @@ const rootUrl = "http://"+currentHost
 
 const http = {
 
-    post: (url, data) => {
+    post: (url, data, file) => {
         const options = {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
+            headers: {},
+            body: file ? data : JSON.stringify(data), // Use FormData if file is true, otherwise stringify data
             credentials: 'include',
         };
-        return new Promise((resolve) => {
+
+        if (!file) {
+            options.headers['Content-Type'] = 'application/json';
+        }
+
+        return new Promise((resolve, reject) => {
             fetch(rootUrl + url, options)
-                .then((res) => res.json())
+                .then((res) => {
+                    if (!res.ok) {
+                        return reject(new Error(`HTTP error! status: ${res.status}`));
+                    }
+                    return res.json();
+                })
                 .then((res) => {
                     resolve(res);
+                })
+                .catch((error) => {
+                    reject(error);
                 });
         });
     },
