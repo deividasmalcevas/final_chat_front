@@ -65,15 +65,22 @@ const Login = () => {
                             className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-md transition duration-300">
+                    <button type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-md transition duration-300">
                         Login
                     </button>
                 </form>
+                <div>
+                    <p className="text-center text-sm text-gray-600">
+                        Don't have an account?{' '}
+                        <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
+                    </p>
+                    <p className="text-center text-sm text-gray-600">
+                        Forgot password?{' '}
+                        <Link href="/password-recovery" className="text-blue-600 hover:underline">Password Recovery</Link>
+                    </p>
+                </div>
 
-                <p className="text-center text-sm text-gray-600">
-                    Don't have an account?{' '}
-                    <Link href="/register" className="text-blue-600 hover:underline">Register</Link>
-                </p>
             </div>
         </div>
     );
