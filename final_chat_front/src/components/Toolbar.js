@@ -65,7 +65,7 @@ const Toolbar = () => {
                     {isLoggedIn ? (
                         <>
                             <Link href="/dashboard" className="hover:text-gray-300">Dashboard</Link>
-                            <Link href="/profile" className="hover:text-gray-300">Profile</Link>
+                            <Link href="/users" className="hover:text-gray-300">Users</Link>
                         </>
                     ) : (
                         <>
