@@ -40,7 +40,7 @@ const SingleUser = () => {
                 <div>
                     <UserProfile user={user} />
 
-                    <ChatBox user={user} />
+                    <ChatBox user={user} type={"private"} />
 
                 </div>
             ) : (
