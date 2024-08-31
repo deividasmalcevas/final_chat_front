@@ -1,32 +1,88 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import http from "@/plugins/http";
+import ReactionsMenu from './ReactionsMenu';
+import ReactionsDisplay from './ReactionsDisplay';
 
-const ChatBox = ({ user }) => {
+const ChatBox = ({ user, type, roomId }) => {
     const [message, setMessage] = useState('');
     const [chatHistory, setChatHistory] = useState([]);
-    const chatEndRef = useRef(null); // Create a ref to scroll to the end
+    const [conID, setConID] = useState(null);
+    const [conName, setConName] = useState(null);
+    const [conOwner, setOwner] = useState(null);
+    const [visibleMenuIndex, setVisibleMenuIndex] = useState(null);
+    const chatEndRef = useRef(null);
+    const [current, setCurrent] = useState([]);
+    const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+    const router = useRouter(); // Initialize the router
+
+    useEffect(() => {
+        const getUser = async () => {
+            try {
+                const res = await http.get('/private/get-user', true);
+                if (res.error) return setError(res.error);
+                setCurrent(res.data);
+            } catch (error) {
+                console.error('Error fetching protected data:', error);
+            }
+        };
+
+        getUser();
+    }, []);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            await GetConvoData();
+        };
+
+        fetchData();
+    }, [type, roomId]);
+
+    useEffect(() => {
+        if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatHistory]);
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-
         try {
-            const res = await http.post(`/private/send-private-msg`, { username: user.username, msg: message });
+            let res;
+            if (type === 'private') {
+                res = await http.post(`/private/send-private-msg`, { username: user.username, msg: message });
+            }
+            if (type === 'public') {
+                res = await http.post(`/private/send-prublic-msg`, { roomId: roomId, msg: message});
+            }
             if (res.success) {
                 if (message.trim()) {
+                    setConID(res.data._id);
                     setChatHistory(res.data.messages);
                     setMessage('');
                 }
             } else {
-                console.error('Failed to fetch users.');
+                console.error('Failed to send message.');
             }
         } catch (err) {
-            console.error('Failed to fetch users:', err);
+            console.error('Failed to send message:', err);
         }
     };
-    const fetchUserData = async (username) => {
+
+    const GetConvoData = async () => {
         try {
-            const res = await http.get(`/private/get-private-con/${username}`, true);
+            let res;
+            if (type === 'private') {
+                res = await http.get(`/private/get-private-con/${user.username}`, true);
+            }
+            if (type === 'public') {
+                res = await http.get(`/private/get-room/${roomId}`, true);
+            }
             if (res.success) {
+                if (type === 'public') {
+                    setConName(res.data.RoomName)
+                    setOwner(res.data.owner)
+                }
+                setConID(res.data._id);
                 setChatHistory(res.data.messages);
             } else {
                 console.error('Failed to fetch conversation.');
@@ -35,43 +91,181 @@ const ChatBox = ({ user }) => {
             console.error('Error fetching conversation:', err);
         }
     };
-    useEffect(() => {
-        fetchUserData(user.username);
-    }, [user.username]);
 
-    // Scroll to the bottom of the chat whenever chatHistory changes
-    useEffect(() => {
-        if (chatEndRef.current) {
-            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const handleAddReaction = async (messageId, reaction) => {
+        try {
+            const res = await http.post(`/private/add-msg-reaction`, { conID, messageId, reaction });
+            if (res.success) {
+                return GetConvoData();
+            }
+        } catch (err) {
+            console.error('Failed to add reaction:', err);
         }
-    }, [chatHistory]);
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        try {
+            const res = await http.post(`/private/del-msg`, { conID, messageId });
+            if (res.success) {
+                return GetConvoData();
+            }
+        } catch (err) {
+            console.error('Failed to delete message:', err);
+        }
+    };
+
+    const handleReactionClick = (reactionType, messageId) => {
+        const reactionMap = {
+            'likes': '👍',
+            'hearts': '❤️',
+            'laughs': '😂',
+            'sads': '😢',
+        };
+
+        const emoji = reactionMap[reactionType];
+        if (emoji) {
+            handleAddReaction(messageId, emoji);
+        }
+    };
+
+    const toggleReactionMenu = (index) => {
+        setVisibleMenuIndex(prevIndex => (prevIndex === index ? null : index));
+    };
+    const handleDeleteConversation = async () => {
+        try {
+            let res
+            if (type === 'private') {
+                res = await http.post(`/private/del-convo`, { conID });
+            }
+            if (type === 'public') {
+                res = await http.post(`/private/delete-room`, { roomId });
+            }
+            if (res.success) {
+                if (type === 'public') {
+                    navigateToRooms()
+                }
+                setChatHistory([]);
+                setConID(null);
+                setShowConfirmPopup(false);
+            } else {
+                console.error('Failed to delete conversation.');
+            }
+        } catch (err) {
+            console.error('Error deleting conversation:', err);
+        }
+    };
+
+    const navigateToUser = (username) => {
+        router.push(`/user/${username}`);
+    };
+    const navigateToRooms = () => {
+        router.push(`/rooms`);
+    };
 
     return (
         <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-2">Chat with {user.username}</h2>
+            {type === 'private' && conID && (
+                <div className="flex justify-end mb-4">
+                    <button
+                        className="button-62 text-red-500"
+                        onClick={() => setShowConfirmPopup(true)}
+                    >
+                        🗑️ Delete Conversation
+                    </button>
+                </div>
+            )}
+            {type === 'public' && conID && conOwner === current._id && (
+                <div className="flex justify-end mb-4">
+                    <button
+                        className="button-62 text-red-500"
+                        onClick={() => setShowConfirmPopup(true)}
+                    >
+                        🗑️ Delete Room
+                    </button>
+                </div>
+            )}
+            {type === 'public' && (
+                <div className="flex justify-center mb-4">
+                    <span className="text-black font-bold text-2xl">{conName}</span>
+                </div>
+            )}
             <div className="border border-gray-300 rounded-md h-64 p-4 overflow-y-auto">
-                {chatHistory.map((chat, index) => (
-                    <div key={index} className={`mb-2 ${user.username !== chat.sender ? 'text-right' : 'text-left'}`}>
-                        <div className={`flex items-center ${user.username !== chat.sender ? 'justify-end' : 'justify-start'}`}>
-                            {user.username === chat.sender && (
-                                <img src={chat.avatar} alt={`${chat.sender}'s avatar`} className="h-8 w-8 rounded-full mr-2" />
-                            )}
-                            <span className={`${user.username === chat.sender ? 'bg-green-800 text-white' : 'bg-blue-500 text-white'} p-2 rounded`}>
-                                {chat.content}
-                            </span>
-                            {user.username !== chat.sender && (
-                                <img src={chat.avatar} alt={`${chat.sender}'s avatar`} className="h-8 w-8 rounded-full ml-2" />
-                            )}
+                {chatHistory.map((chat, index) => {
+                    const isSender = current.username === chat.sender;
+
+                    return (
+                        <div key={index} className={`mb-2 ${!isSender ? 'text-right' : 'text-left'}`}>
+                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
+                                {!isSender && (
+                                    <img
+                                        src={chat.avatar}
+                                        alt={`${chat.sender}'s avatar`}
+                                        className="h-8 w-8 rounded-full mr-2 cursor-pointer"
+                                        onClick={() => navigateToUser(chat.sender)}
+                                    />
+                                )}
+                                <span
+                                    className={`font-bold text-black cursor-pointer`}
+                                    onClick={() => navigateToUser(chat.sender)}
+                                >
+                                    {chat.sender}
+                                </span>
+                                {isSender && (
+                                    <img
+                                        src={chat.avatar}
+                                        alt={`${chat.sender}'s avatar`}
+                                        className="h-8 w-8 rounded-full ml-2 cursor-pointer"
+                                        onClick={() => navigateToUser(chat.sender)} // Navigate on avatar click
+                                    />
+                                )}
+                            </div>
+                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
+                                <span className={`${!isSender ? 'bg-green-800 text-white' : 'bg-blue-500 text-white'} p-2 rounded`}>
+                                    {chat.content}
+                                </span>
+                            </div>
+                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
+                                {isSender && (
+                                    <button
+                                        className="text-red-500 ml-3"
+                                        onClick={() => handleDeleteMessage(chat._id)} // Handle message deletion
+                                    >
+                                        🗑️
+                                    </button>
+                                )}
+                                <span className="text-xs text-gray-500">
+                                    {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {!isSender && (
+                                    <div className="relative">
+                                        <button className="text-gray-500 ml-3"
+                                                onClick={() => toggleReactionMenu(index)}
+                                        >
+                                            ...
+                                        </button>
+                                        {visibleMenuIndex === index && (
+                                            <ReactionsMenu
+                                                messageId={chat._id}
+                                                handleAddReaction={handleAddReaction}
+                                                closeMenu={() => setVisibleMenuIndex(null)}
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
+                                <ReactionsDisplay
+                                    reactions={chat.reactions}
+                                    onReactionClick={(reactionType) => handleReactionClick(reactionType, chat._id)}
+                                    currentUser={current} // Pass currentUser to check for each reaction
+                                />
+                            </div>
                         </div>
-                        {/* Display the timestamp below the message */}
-                        <span className={`text-xs text-gray-500 ${user.username !== chat.sender ? 'text-right' : 'text-left'}`}>
-                            {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                    </div>
-                ))}
-                {/* This div will be scrolled into view when a new message is added */}
+                    );
+                })}
                 <div ref={chatEndRef} />
             </div>
+
             <form onSubmit={handleSendMessage} className="flex mt-4">
                 <input
                     type="text"
@@ -82,6 +276,33 @@ const ChatBox = ({ user }) => {
                 />
                 <button type="submit" className="bg-blue-500 text-white rounded-r-md px-4">Send</button>
             </form>
+
+            {showConfirmPopup && (
+                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
+                    <div className="bg-white text-black p-4 rounded shadow-lg">
+                        {type === "private" && (
+                            <p>Are you sure you want to delete this conversation with {user.username}?</p>
+                        )}
+                        {type === "public" && (
+                            <p>Are you sure you want to delete this room?</p>
+                        )}
+                        <div className="flex justify-end mt-4">
+                            <button
+                                className="bg-red-500 text-white px-4 py-2 rounded mr-2"
+                                onClick={handleDeleteConversation}
+                            >
+                                Yes, Delete
+                            </button>
+                            <button
+                                className="bg-gray-300 text-black px-4 py-2 rounded"
+                                onClick={() => setShowConfirmPopup(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

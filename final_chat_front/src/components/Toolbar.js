@@ -64,7 +64,7 @@ const Toolbar = () => {
                 <nav className="flex space-x-4">
                     {isLoggedIn ? (
                         <>
-                            <Link href="/dashboard" className="hover:text-gray-300">Dashboard</Link>
+                            <Link href="/rooms" className="hover:text-gray-300">Rooms</Link>
                             <Link href="/users" className="hover:text-gray-300">Users</Link>
                         </>
                     ) : (
