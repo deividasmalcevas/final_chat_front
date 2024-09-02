@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import http from "@/plugins/http";
 import sendNotification from '@/plugins/notification'; // Adjust the import path as necessary
-import { useRouter } from 'next/navigation'; // Import useRouter
-import { checkLoginStatus } from "@/plugins/login"; // Import checkLoginStatus
 
 const UserProfile = ({ user }) => {
-    const router = useRouter();
     const [friendStatus, setFriendStatus] = useState('not a friend'); // Initial status is 'not a friend'
 
     // Function to check the friendship status
@@ -24,7 +21,6 @@ const UserProfile = ({ user }) => {
 
     // Function to handle adding a friend
     const handleAddFriend = async () => {
-        cookies()
         try {
             const response = await http.post('/private/add-friend', {
                 userIdToAdd: user._id
@@ -45,7 +41,7 @@ const UserProfile = ({ user }) => {
         }
     };
 
-    // Function to render the friendship button based on status
+
     const renderFriendButton = () => {
         const buttonClasses = "flex-1 rounded-full text-white antialiased font-bold px-4 py-2 w-32"; 
         if (friendStatus === 'accepted') {
@@ -77,16 +73,36 @@ const UserProfile = ({ user }) => {
             );
         }
     };
-    const cookies = () => {
-        if (!checkLoginStatus()) {
-            router.push('/login'); // Redirect to login if not authenticated
-            return; // Prevent further execution
+
+    // Function to render the user's status circle
+    const renderStatusCircle = () => {
+        let statusClass = '';
+        switch (user.status) {
+            case 'online':
+                statusClass = 'bg-green-500';
+                break;
+            case 'busy':
+                statusClass = 'bg-red-500';
+                break;
+            case 'away':
+                statusClass = 'bg-yellow-500';
+                break;
+            default:
+                statusClass = 'bg-gray-400'; // Offline or unknown status
+                break;
         }
+        
+        return (
+            <div className="ms-1.5 flex items-center gap-2">
+                <span className={`inline-block text-black w-3 h-3 rounded-full ${statusClass}`}></span>
+                <span className="text-black dark:text-white">
+                    <strong className='text-black' >{user.status.charAt(0).toUpperCase() + user.status.slice(1)}</strong>
+                </span>
+            </div>
+        );
     };
 
     useEffect(() => {
-        cookies()
-
         checkFriendStatus(); // Check the friendship status when the component mounts
     }, [user]); // Adding user to dependencies
 
@@ -99,6 +115,8 @@ const UserProfile = ({ user }) => {
                     className="w-32 h-32 rounded-full mb-4"
                 />
                 <h1 className="text-2xl text-black font-bold mb-2">{user.username}</h1>
+                {/* Render User Status Circle */}
+                {renderStatusCircle()}
                 <div className="flex items-center mb-4">
                     <svg
                         className="h-6 w-6 text-gray-600 dark:text-gray-400"
@@ -112,7 +130,7 @@ const UserProfile = ({ user }) => {
                             d="M12 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm9 11a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v2z"
                         />
                     </svg>
-                    <span className="text-gray-600 ml-2">{user.friendsCount || 0} Friends</span>
+                    <span className="text-gray-600 ml-2">{user.friends.filter(friend => friend.status === "accepted").length || 0} Friends</span>
                 </div>
 
                 {/* Render the friendship button here */}

@@ -3,14 +3,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import useAuthStore from '@/stores/authStore';
 import http from '@/plugins/http';
-import { useRouter } from 'next/navigation';
-import { checkLoginStatus } from "@/plugins/login";
 import ErrorPopup from "@/components/ErrorPopup";
 import ChangeNamePopup from "@/components/ChangeNamePopup";
 import ChangeEmailPopup from "@/components/ChangeEmailPopup";
 import ChangePasswordPopup from "@/components/ChangePasswordPopup";
 import DeleteUserPopup from "@/components/DeleteUserPopup";
 import Loading from "@/components/Loading"; // Import the Loading component
+import { useRouter } from 'next/navigation'; 
 
 const ProfilePage = () => {
     const [error, setError] = useState(null);
@@ -21,14 +20,14 @@ const ProfilePage = () => {
     const [joined, setJoined] = useState('');
     const [online, setOnline] = useState('');
     const [loading, setLoading] = useState(true); // Loading state
-    const router = useRouter();
     const { setIsLoggedIn, setChange } = useAuthStore();
-    const [isEditingBio, setIsEditingBio] = useState(false);
     const [isBioChanged, setIsBioChanged] = useState(false);
     const [showChangeName, setShowChangeName] = useState(false);
     const [showChangeEmail, setShowChangeEmail] = useState(false);
     const [showChangePassword, setShowChangePassword] = useState(false);
     const [showDeleteUser, setShowDeleteUser] = useState(false);
+    
+    const router = useRouter();
 
     const handleBioChange = (e) => {
         setBio(e.target.value);
@@ -42,7 +41,6 @@ const ProfilePage = () => {
 
     async function updateBio(bio) {
         try {
-            checkCookies()
             const res = await http.post("/private/change-bio", { bio }, false);
             if (res.error) return setError(res.error);
             setBio(res.data.bio);
@@ -55,9 +53,6 @@ const ProfilePage = () => {
         setError(null);
     };
 
-    const loadingGif =
-        "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcWtsZWNwb2MzcXd6Zmw4NDM5NW9oNTMwZXpnNW92bTc0czM0eTZ0dyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3oEjI6SIIHBdRxXI40/giphy.webp";
-
     const imageRef = useRef();
     const changeImage = () => {
         if (imageRef.current) {
@@ -66,7 +61,6 @@ const ProfilePage = () => {
     };
 
     const validateFile = (event) => {
-        checkCookies()
         const file = event.target.files[0];
         if (file) {
             const validImageTypes = ["image/jpeg", "image/png", "image/gif"];
@@ -82,7 +76,6 @@ const ProfilePage = () => {
         const formData = new FormData();
         formData.append("avatar", image);
         try {
-            checkCookies()
             setChange(false);
             const res = await http.post("/private/change-avatar", formData, true);
             if (res.error) return setError(res.error);
@@ -96,7 +89,6 @@ const ProfilePage = () => {
 
     const handleNameChange = async (newName, password) => {
         try {
-            checkCookies()
             const res = await http.post('/private/change-username', { username: newName, password }, false);
             if (res.error) return setError(res.error);
             setUsername(res.data);
@@ -108,7 +100,6 @@ const ProfilePage = () => {
 
     const handleEmailChange = async (newEmail, password) => {
         try {
-            checkCookies()
             const res = await http.post('/private/change-email', { email: newEmail, password }, false);
             if (res.error) return { error: res.error };
             return {};  // Return an empty object to indicate success
@@ -120,7 +111,6 @@ const ProfilePage = () => {
 
     const handleEmailVerification = async (verificationCode) => {
         try {
-            checkCookies()
             const res = await http.post('/private/verify-email-code', { code: verificationCode }, false);
             if (res.error) return { error: res.error };
             setEmail(res.data.email);
@@ -133,7 +123,6 @@ const ProfilePage = () => {
 
     const handlePasswordChange = async (newPassword, password) => {
         try {
-            checkCookies()
             const res = await http.post('/private/change-password', { newPassword, password }, false);
             if (res.error) return setError(res.error);
             setShowChangePassword(false)
@@ -144,7 +133,6 @@ const ProfilePage = () => {
 
     const handlePasswordVerification = async (password) => {
         try {
-            checkCookies()
             const res = await http.post('/private/delete-user', { password }, false);
             if (res.error) return { error: res.error };
             return {};  // Return an empty object to indicate success
@@ -156,27 +144,16 @@ const ProfilePage = () => {
 
     const handleDeleteUser = async (verificationCode) => {
         try {
-            checkCookies()
             const res = await http.post('/private/delete-user-code', { code: verificationCode }, false);
             if (res.error) return { error: res.error };
+            setIsLoggedIn(false); // Update the auth store to log out the user
+            router.push('/login'); // Redirect to login page after successful deletion
             setShowDeleteUser(false);
-            checkCookies()
         } catch (error) {
             console.error("Error deleting user:", error);
             return { error: 'Failed to delete user. Please try again.' };
         }
     };
-
-    function checkCookies(){
-        if (!checkLoginStatus()) {
-            setIsLoggedIn(false);
-            router.push('/login');
-        }
-    }
-
-    useEffect(() => {
-       checkCookies()
-    }, [setIsLoggedIn, router]);
 
     useEffect(() => {
         const getUser = async () => {

@@ -4,12 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import http from "@/plugins/http";
 import ProfileCard from "@/components/ProfileCard";
 import Pagination from "@/components/Pagination";
-import { useRouter } from 'next/navigation';
-import { checkLoginStatus } from "@/plugins/login";
 import Loading from "@/components/Loading"; // Import the Loading component
 
 const Users = () => {
-    const router = useRouter();
     const [users, setUsers] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -17,15 +14,10 @@ const Users = () => {
     const usersPerPage = 12;
     const isFirstRender = useRef(true);
 
-    const cookies = () => {
-        if (!checkLoginStatus()) {
-            router.push('/login');
-            return;
-        }
-    };
+
 
     useEffect(() => {
-        cookies();
+       
 
         if (isFirstRender.current) {
             isFirstRender.current = false;
@@ -36,7 +28,7 @@ const Users = () => {
     }, [currentPage]);
 
     const fetchUsers = async (page) => {
-        cookies();
+       
         setIsLoading(true); // Set loading to true when fetching starts
         try {
             const res = await http.get(`/private/users?page=${page}&limit=${usersPerPage}`, true);
@@ -58,7 +50,7 @@ const Users = () => {
     };
 
     const handleFriendStatusChange = (username, status) => {
-        cookies();
+       
         setUsers((prevUsers) =>
             prevUsers.map((user) => {
                 if (user.username === username) {
@@ -70,7 +62,7 @@ const Users = () => {
     };
 
     const handlePageChange = (page) => {
-        cookies();
+       
         if (page > 0 && page <= totalPages) {
             setCurrentPage(page);
         }

@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import http from "@/plugins/http";
 import UserProfile from "@/components/UserProfile";
 import ChatBox from "@/components/ChatBox";
-import { checkLoginStatus } from "@/plugins/login"; // Import checkLoginStatus
 import Loading from "@/components/Loading"; // Import the Loading component
 
 const SingleUser = () => {
@@ -15,12 +14,6 @@ const SingleUser = () => {
     const [loading, setLoading] = useState(true); // Loading state
 
     useEffect(() => {
-        // Check if the user is logged in
-        if (!checkLoginStatus()) {
-            router.push('/login'); // Redirect to login if not authenticated
-            return; // Prevent further execution
-        }
-
         if (username) {
             fetchUserData(username);
         }

@@ -63,6 +63,33 @@ const ProfileCard = ({ user, friendStatus, onFriendStatusChange }) => {
         }
     };
 
+    const renderStatusCircle = () => {
+        let statusClass = '';
+        switch (user.status) {
+            case 'online':
+                statusClass = 'bg-green-500';
+                break;
+            case 'busy':
+                statusClass = 'bg-red-500';
+                break;
+            case 'away':
+                statusClass = 'bg-yellow-500';
+                break;
+            default:
+                statusClass = 'bg-gray-400'; // Offline or unknown status
+                break;
+        }
+        
+        return (
+            <div className="flex items-center gap-2">
+                <span className={`inline-block w-3 h-3 rounded-full ${statusClass}`}></span>
+                <span className="text-black dark:text-white">
+                    <strong>{user.status.charAt(0).toUpperCase() + user.status.slice(1)}</strong>
+                </span>
+            </div>
+        );
+    };
+
     return (
         <div className="max-w-sm mx-auto bg-white dark:bg-gray-900 rounded-lg overflow-hidden shadow-lg">
             <div className="border-b px-4 pb-6">
@@ -113,6 +140,8 @@ const ProfileCard = ({ user, friendStatus, onFriendStatusChange }) => {
                         </strong> Friends
                     </span>
                 </div>
+                {/* User Status Display */}
+                {renderStatusCircle()}
             </div>
         </div>
     );

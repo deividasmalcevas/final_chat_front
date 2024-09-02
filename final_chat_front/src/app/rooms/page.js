@@ -6,8 +6,6 @@ import RoomCard from "@/components/RoomCard";
 import CreateRoomModal from "@/components/CreateRoomModal";
 import Pagination from "@/components/Pagination";
 import Loading from "@/components/Loading"; // Import the Loading component
-import { useRouter } from 'next/navigation';
-import { checkLoginStatus } from "@/plugins/login"; // Import the checkLoginStatus function
 
 const Rooms = () => {
     const [rooms, setRooms] = useState([]);
@@ -17,28 +15,19 @@ const Rooms = () => {
     const [loading, setLoading] = useState(true); // State to manage loading
     const roomsPerPage = 20;
     const isFirstRender = useRef(true);
-    const router = useRouter();
 
     useEffect(() => {
-        cookies();
-
+        
         if (isFirstRender.current) {
             isFirstRender.current = false;
             return;
         }
 
         fetchRooms(currentPage);
-    }, [currentPage, router]);
-
-    const cookies = () => {
-        if (!checkLoginStatus()) {
-            router.push('/login'); // Redirect to login if not authenticated
-            return; // Prevent further execution
-        }
-    };
+    }, [currentPage]);
 
     const fetchRooms = async (page) => {
-        cookies();
+        
         setLoading(true); // Set loading to true before starting the fetch
         try {
             const res = await http.get(`/private/conversations?page=${page}&limit=${roomsPerPage}`, true);
@@ -57,14 +46,14 @@ const Rooms = () => {
     };
 
     const handlePageChange = (page) => {
-        cookies();
+        
         if (page > 0 && page <= totalPages) {
             setCurrentPage(page);
         }
     };
 
     const toggleModal = () => {
-        cookies();
+        
         setIsModalOpen(!isModalOpen);
     };
 

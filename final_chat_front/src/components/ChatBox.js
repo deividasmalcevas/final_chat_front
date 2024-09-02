@@ -4,7 +4,6 @@ import http from "@/plugins/http";
 import sendNotification from '@/plugins/notification';
 import ReactionsMenu from './ReactionsMenu';
 import ReactionsDisplay from './ReactionsDisplay';
-import { checkLoginStatus } from "@/plugins/login";
 
 const ChatBox = ({ user, type, roomId }) => {
     const [message, setMessage] = useState('');
@@ -18,15 +17,10 @@ const ChatBox = ({ user, type, roomId }) => {
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
     const router = useRouter();
 
-    const cookies = () => {
-        if (!checkLoginStatus()) {
-            router.push('/login'); // Redirect to login if not authenticated
-            return; // Prevent further execution
-        }
-    };
+
     
     useEffect(() => {
-        cookies()
+       
         const getUser = async () => {
             try {
                 const res = await http.get('/private/get-user', true);
@@ -41,7 +35,7 @@ const ChatBox = ({ user, type, roomId }) => {
     }, []);
 
     useEffect(() => {
-        cookies()
+       
         const fetchData = async () => {
             await GetConvoData();
         };
@@ -50,7 +44,7 @@ const ChatBox = ({ user, type, roomId }) => {
     }, [type, roomId]);
 
     useEffect(() => {
-        cookies()
+       
         if (chatEndRef.current) {
             chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
@@ -58,7 +52,7 @@ const ChatBox = ({ user, type, roomId }) => {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        cookies()
+       
         try {
             let res;
             if (type === 'private') {
@@ -85,7 +79,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const GetConvoData = async () => {
-        cookies()
+       
         try {
             let res;
             if (type === 'private') {
@@ -110,7 +104,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleAddReaction = async (messageId, reaction) => {
-        cookies()
+       
         try {
             const res = await http.post(`/private/add-msg-reaction`, { conID, messageId, reaction });
             if (res.success) {
@@ -122,7 +116,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleDeleteMessage = async (messageId) => {
-        cookies()
+       
         try {
             const res = await http.post(`/private/del-msg`, { conID, messageId });
             if (res.success) {
@@ -134,7 +128,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleReactionClick = (reactionType, messageId) => {
-        cookies()
+       
         const reactionMap = {
             'likes': '👍',
             'hearts': '❤️',
@@ -153,7 +147,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleDeleteConversation = async () => {
-        cookies()
+       
         try {
             let res;
             if (type === 'private') {
@@ -178,12 +172,12 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const navigateToUser = (username) => {
-        cookies()
+       
         router.push(`/user/${username}`);
     };
 
     const navigateToRooms = () => {
-        cookies()
+       
         router.push(`/rooms`);
     };
 
