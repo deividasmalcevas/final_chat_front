@@ -1,16 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import http from "@/plugins/http";
+import sendNotification from '@/plugins/notification'; // Adjust the import path as necessary
+import { useRouter } from 'next/navigation'; // Import useRouter
+import { checkLoginStatus } from "@/plugins/login"; // Import checkLoginStatus
 
 const UserProfile = ({ user }) => {
-    const [isFriend, setIsFriend] = useState(user.isFriend); // Assume 'isFriend' is a property of the user object
+    const router = useRouter();
+    const [friendStatus, setFriendStatus] = useState('not a friend'); // Initial status is 'not a friend'
 
-    const handleAddFriend = () => {
-        // Logic to add the user as a friend
-        setIsFriend(true); // Mock adding friend
-        // Make an API call to add the user as a friend if required
+    // Function to check the friendship status
+    const checkFriendStatus = async () => {
+        try {
+            const response = await http.post('/private/check-friend', {
+                userId: user._id
+            });
+            if (response.success) {
+                setFriendStatus(response.status); // Set the status based on the response
+            }
+        } catch (error) {
+            console.error("Error checking friend status:", error);
+        }
     };
 
+    // Function to handle adding a friend
+    const handleAddFriend = async () => {
+        cookies()
+        try {
+            const response = await http.post('/private/add-friend', {
+                userIdToAdd: user._id
+            });
+
+            if (response.success) {
+                // Check the status from the response
+                if (response.status === 'pending') {
+                    await sendNotification(user._id, "You have a new friend request", "friend_request");
+                } else if (response.status === 'accepted') {
+                    await sendNotification(user._id, "You have a new friend!", "friend_request");
+                }
+            }
+
+            checkFriendStatus(); // Refresh the friend status
+        } catch (error) {
+            console.error("Error adding friend:", error);
+        }
+    };
+
+    // Function to render the friendship button based on status
+    const renderFriendButton = () => {
+        const buttonClasses = "flex-1 rounded-full text-white antialiased font-bold px-4 py-2 w-32"; 
+        if (friendStatus === 'accepted') {
+            return (
+                <button className={`${buttonClasses} bg-green-600`} disabled>
+                    Friends
+                </button>
+            );
+        } else if (friendStatus === 'pending') {
+            return (
+                <button className={`${buttonClasses} bg-yellow-600`} disabled>
+                    Pending
+                </button>
+            );
+        } else if (friendStatus === 'declined') {
+            return (
+                <button className={`${buttonClasses} bg-red-600`} disabled>
+                    Declined
+                </button>
+            );
+        } else {
+            return (
+                <button
+                    onClick={handleAddFriend}
+                    className={`${buttonClasses} bg-blue-600 dark:bg-blue-800 hover:bg-blue-800 dark:hover:bg-blue-900`}
+                >
+                    Add
+                </button>
+            );
+        }
+    };
+    const cookies = () => {
+        if (!checkLoginStatus()) {
+            router.push('/login'); // Redirect to login if not authenticated
+            return; // Prevent further execution
+        }
+    };
+
+    useEffect(() => {
+        cookies()
+
+        checkFriendStatus(); // Check the friendship status when the component mounts
+    }, [user]); // Adding user to dependencies
+
     return (
-        <div className="bg-white p-8 rounded-lg shadow-lg  mx-auto flex flex-col md:flex-row">
+        <div className="bg-white p-8 rounded-lg shadow-lg mx-auto flex flex-col md:flex-row">
             <div className="flex flex-col items-center md:items-start md:w-1/3">
                 <img
                     src={user.avatar || 'https://via.placeholder.com/150'}
@@ -33,17 +114,9 @@ const UserProfile = ({ user }) => {
                     </svg>
                     <span className="text-gray-600 ml-2">{user.friendsCount || 0} Friends</span>
                 </div>
-                {!isFriend && (
-                    <button
-                        onClick={handleAddFriend}
-                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition duration-300"
-                    >
-                        Add to Friends
-                    </button>
-                )}
-                {isFriend && (
-                    <p className="text-green-600 font-bold">You are friends with {user.username}!</p>
-                )}
+
+                {/* Render the friendship button here */}
+                {renderFriendButton()}
             </div>
             <div className="mt-6 md:mt-0 md:ml-8 md:w-2/3">
                 <h2 className="text-xl text-black font-bold mb-2">About Me</h2>
