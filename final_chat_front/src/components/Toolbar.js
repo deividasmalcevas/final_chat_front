@@ -6,32 +6,62 @@ import useAuthStore from '@/stores/authStore';
 import http from '@/plugins/http';
 import { useRouter } from 'next/navigation';
 import NotificationsDropdown from './NotificationsDropdown';
-import StatusDropdown from './StatusDropdown'; // Import the new StatusDropdown component
+import StatusDropdown from './StatusDropdown'; 
+import { io } from 'socket.io-client';
 
 const Toolbar = () => {
     const router = useRouter();
     const { isLoggedIn, checkLoginStatus, logout, change } = useAuthStore();
     const [error, setError] = useState(null);
     const [avatar, setAvatar] = useState(null);
+    const [Id, setId] = useState(null);
     const [username, setUsername] = useState(null);
     const [status, setStatus] = useState('offline');
     const [menuOpen, setMenuOpen] = useState(false);
+
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [dropdownOpen, setDropdownOpen] = useState(false); // State for dropdown
     const menuRef = useRef(null);
+    const socket = useRef(null);
+   
+
+    useEffect(() => {
+        if (isLoggedIn) {
+            // Initialize socket connection
+            socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:1010'); 
+
+            // Join the user's private room for notifications
+            socket.current.emit('user_toolbar', Id);
+
+            // Listen for incoming notifications
+            socket.current.on('receive_notification', (count) => {
+                setUnreadCount(count);
+            });
+
+            return () => {
+                socket.current.disconnect();
+            };
+        }
+    }, [isLoggedIn, Id]);
+
 
     useEffect(() => {
         if (isLoggedIn || change) {
+
+            socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:1010');
+
             getNotify();
             const getUser = async () => {
                 try {
                     const res = await http.get('/private/get-user', true);
                     if (res.error) return setError(res.error);
+
                     setAvatar(res.data.avatar);
                     setUsername(res.data.username);
                     setStatus(res.data.status);
+                    setId(res.data._id)
                 } catch (error) {
                     console.error('Error fetching protected data:', error);
                 }
@@ -39,6 +69,7 @@ const Toolbar = () => {
             getUser();
         } else {
             setAvatar(null);
+            setId(null)
             setUsername(null);
             setStatus('offline');
         }
@@ -70,6 +101,7 @@ const Toolbar = () => {
         setMenuOpen(false);
         setAvatar(null);
         setUsername(null);
+        setId(null)
         setStatus('offline');
         router.push('/login');
     };
@@ -154,7 +186,7 @@ const Toolbar = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405 1.405a1 1 0 01-1.415 0L15 17zm-6 0H4l1.405 1.405a1 1 0 001.415 0L9 17zm6-7V8a6 6 0 10-12 0v2l-1 1v3h14V11l-1-1z" />
                                 </svg>
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-0 right-0 inline-block w-4 h-4 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                                    <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
                                         {unreadCount}
                                     </span>
                                 )}

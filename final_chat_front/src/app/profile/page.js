@@ -7,7 +7,7 @@ import ErrorPopup from "@/components/ErrorPopup";
 import ChangeNamePopup from "@/components/ChangeNamePopup";
 import ChangeEmailPopup from "@/components/ChangeEmailPopup";
 import ChangePasswordPopup from "@/components/ChangePasswordPopup";
-import DeleteUserPopup from "@/components/DeleteUserPopup";
+import DeleteUserPopup from "@/components/DeleteuserPopup";
 import Loading from "@/components/Loading"; // Import the Loading component
 import { useRouter } from 'next/navigation'; 
 
