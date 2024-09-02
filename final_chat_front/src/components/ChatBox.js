@@ -96,11 +96,12 @@ const ChatBox = ({ user, type, roomId }) => {
                 res = await http.post(`/private/send-private-msg`, { user, msg: message });
                 if (res.success) {
                     const recipientId = user._id;
-                    socket.current.emit('check_user_status', recipientId, async (isConnected) => {
-                        if(!isConnected) return await sendNotification(user._id, "You have received a new private message.", "message");
+                    socket.current.emit('check_user_status', { userId: recipientId, conID }, async (isConnected) => {
+                        if (!isConnected) {
+                            return await sendNotification(user._id, "You have received a new private message.", "message");
+                        }
                         return;
                     });
-                    console.log('here')
                 }
             } else if (type === 'public') {
                 res = await http.post(`/private/send-public-msg`, { conID, msg: message });
