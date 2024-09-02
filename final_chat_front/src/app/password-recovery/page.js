@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import http from "@/plugins/http";
+import ErrorPopup from "@/components/ErrorPopup"; // Import the ErrorPopup component
 
 const PasswordRecovery = () => {
     const router = useRouter();
@@ -11,7 +12,7 @@ const PasswordRecovery = () => {
     const [verificationCode, setVerificationCode] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null); // Change initial state to null
     const [successMessage, setSuccessMessage] = useState('');
     const [timer, setTimer] = useState(300); // 300 seconds = 5 minutes
 
@@ -30,7 +31,7 @@ const PasswordRecovery = () => {
 
     const handleEmailSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        setError(null); // Reset error state
         setSuccessMessage('');
 
         try {
@@ -50,7 +51,7 @@ const PasswordRecovery = () => {
 
     const handleResetPassword = async (e) => {
         e.preventDefault();
-        setError('');
+        setError(null); // Reset error state
         setSuccessMessage('');
 
         if (newPassword !== confirmPassword) {
@@ -82,13 +83,16 @@ const PasswordRecovery = () => {
         return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
     };
 
+    const handleCloseError = () => {
+        setError(null); // Close the error popup
+    };
+
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <div className="w-full max-w-md p-8 space-y-8 bg-white text-black rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold text-center">
                     {step === 1 ? 'Password Recovery' : 'Verify and Reset Password'}
                 </h2>
-                {error && <p className="text-red-500 text-center">{error}</p>}
                 {successMessage && <p className="text-green-500 text-center">{successMessage}</p>}
 
                 {step === 1 && (
@@ -150,6 +154,8 @@ const PasswordRecovery = () => {
                     </form>
                 )}
             </div>
+
+            {error && <ErrorPopup message={error} onClose={handleCloseError} />} {/* Render ErrorPopup if error exists */}
         </div>
     );
 };

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import http from "@/plugins/http";
+import sendNotification from '@/plugins/notification';
 import ReactionsMenu from './ReactionsMenu';
 import ReactionsDisplay from './ReactionsDisplay';
+import { checkLoginStatus } from "@/plugins/login";
 
 const ChatBox = ({ user, type, roomId }) => {
     const [message, setMessage] = useState('');
@@ -14,9 +16,17 @@ const ChatBox = ({ user, type, roomId }) => {
     const chatEndRef = useRef(null);
     const [current, setCurrent] = useState([]);
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
-    const router = useRouter(); // Initialize the router
+    const router = useRouter();
 
+    const cookies = () => {
+        if (!checkLoginStatus()) {
+            router.push('/login'); // Redirect to login if not authenticated
+            return; // Prevent further execution
+        }
+    };
+    
     useEffect(() => {
+        cookies()
         const getUser = async () => {
             try {
                 const res = await http.get('/private/get-user', true);
@@ -31,6 +41,7 @@ const ChatBox = ({ user, type, roomId }) => {
     }, []);
 
     useEffect(() => {
+        cookies()
         const fetchData = async () => {
             await GetConvoData();
         };
@@ -39,6 +50,7 @@ const ChatBox = ({ user, type, roomId }) => {
     }, [type, roomId]);
 
     useEffect(() => {
+        cookies()
         if (chatEndRef.current) {
             chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
@@ -46,13 +58,17 @@ const ChatBox = ({ user, type, roomId }) => {
 
     const handleSendMessage = async (e) => {
         e.preventDefault();
+        cookies()
         try {
             let res;
             if (type === 'private') {
-                res = await http.post(`/private/send-private-msg`, { username: user.username, msg: message });
+                res = await http.post(`/private/send-private-msg`, { user, msg: message });
+                if (res.success && message.trim()) {
+                    await sendNotification(user._id, "You have received a new private message.", "message");
+                }
             }
             if (type === 'public') {
-                res = await http.post(`/private/send-prublic-msg`, { roomId: roomId, msg: message});
+                res = await http.post(`/private/send-prublic-msg`, { roomId: roomId, msg: message });
             }
             if (res.success) {
                 if (message.trim()) {
@@ -69,23 +85,24 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const GetConvoData = async () => {
+        cookies()
         try {
             let res;
             if (type === 'private') {
-                res = await http.get(`/private/get-private-con/${user.username}`, true);
+                res = await http.get(`/private/get-private-con/${user._id}`, true);
             }
             if (type === 'public') {
                 res = await http.get(`/private/get-room/${roomId}`, true);
             }
             if (res.success) {
                 if (type === 'public') {
-                    setConName(res.data.RoomName)
-                    setOwner(res.data.owner)
+                    setConName(res.data.RoomName);
+                    setOwner(res.data.owner.id);
                 }
                 setConID(res.data._id);
                 setChatHistory(res.data.messages);
             } else {
-                console.error('Failed to fetch conversation.');
+                if (type === 'public') console.log(res.error);
             }
         } catch (err) {
             console.error('Error fetching conversation:', err);
@@ -93,6 +110,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleAddReaction = async (messageId, reaction) => {
+        cookies()
         try {
             const res = await http.post(`/private/add-msg-reaction`, { conID, messageId, reaction });
             if (res.success) {
@@ -104,6 +122,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleDeleteMessage = async (messageId) => {
+        cookies()
         try {
             const res = await http.post(`/private/del-msg`, { conID, messageId });
             if (res.success) {
@@ -115,6 +134,7 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleReactionClick = (reactionType, messageId) => {
+        cookies()
         const reactionMap = {
             'likes': '👍',
             'hearts': '❤️',
@@ -131,9 +151,11 @@ const ChatBox = ({ user, type, roomId }) => {
     const toggleReactionMenu = (index) => {
         setVisibleMenuIndex(prevIndex => (prevIndex === index ? null : index));
     };
+
     const handleDeleteConversation = async () => {
+        cookies()
         try {
-            let res
+            let res;
             if (type === 'private') {
                 res = await http.post(`/private/del-convo`, { conID });
             }
@@ -142,7 +164,7 @@ const ChatBox = ({ user, type, roomId }) => {
             }
             if (res.success) {
                 if (type === 'public') {
-                    navigateToRooms()
+                    navigateToRooms();
                 }
                 setChatHistory([]);
                 setConID(null);
@@ -156,9 +178,12 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const navigateToUser = (username) => {
+        cookies()
         router.push(`/user/${username}`);
     };
+
     const navigateToRooms = () => {
+        cookies()
         router.push(`/rooms`);
     };
 
@@ -189,9 +214,9 @@ const ChatBox = ({ user, type, roomId }) => {
                     <span className="text-black font-bold text-2xl">{conName}</span>
                 </div>
             )}
-            <div className="border border-gray-300 rounded-md h-64 p-4 overflow-y-auto">
+            <div className="border bg-white border-gray-300 rounded-md h-64 p-4 overflow-y-auto">
                 {chatHistory.map((chat, index) => {
-                    const isSender = current.username === chat.sender;
+                    const isSender = current._id === chat.senderId;
 
                     return (
                         <div key={index} className={`mb-2 ${!isSender ? 'text-right' : 'text-left'}`}>
@@ -215,7 +240,7 @@ const ChatBox = ({ user, type, roomId }) => {
                                         src={chat.avatar}
                                         alt={`${chat.sender}'s avatar`}
                                         className="h-8 w-8 rounded-full ml-2 cursor-pointer"
-                                        onClick={() => navigateToUser(chat.sender)} // Navigate on avatar click
+                                        onClick={() => navigateToUser(chat.sender)}
                                     />
                                 )}
                             </div>
@@ -228,7 +253,7 @@ const ChatBox = ({ user, type, roomId }) => {
                                 {isSender && (
                                     <button
                                         className="text-red-500 ml-3"
-                                        onClick={() => handleDeleteMessage(chat._id)} // Handle message deletion
+                                        onClick={() => handleDeleteMessage(chat._id)}
                                     >
                                         🗑️
                                     </button>
@@ -257,7 +282,7 @@ const ChatBox = ({ user, type, roomId }) => {
                                 <ReactionsDisplay
                                     reactions={chat.reactions}
                                     onReactionClick={(reactionType) => handleReactionClick(reactionType, chat._id)}
-                                    currentUser={current} // Pass currentUser to check for each reaction
+                                    currentUser={current}
                                 />
                             </div>
                         </div>

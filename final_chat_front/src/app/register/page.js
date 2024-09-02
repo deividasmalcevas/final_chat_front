@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import http from "@/plugins/http";
+import ErrorPopup from "@/components/ErrorPopup"; // Import the ErrorPopup component
 
 const Register = () => {
     const router = useRouter();
@@ -11,7 +12,7 @@ const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null); // Change initial state to null
     const [successMessage, setSuccessMessage] = useState('');
     const [token, setToken] = useState('');
     const [isRegistered, setIsRegistered] = useState(false);
@@ -20,7 +21,7 @@ const Register = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        setError(null); // Reset error state on form submit
         setSuccessMessage('');
 
         if (password !== confirmPassword) {
@@ -62,9 +63,8 @@ const Register = () => {
         }
     };
 
-
     const handleResendCode = async () => {
-        setError('');
+        setError(null); // Reset error state
         try {
             const res = await http.post("/auth/register", {
                 email: email,
@@ -98,11 +98,14 @@ const Register = () => {
         return () => clearInterval(timer); // Cleanup timer on component unmount
     }, [resendDisabled, countdown]);
 
+    const handleCloseError = () => {
+        setError(null); // Close the error popup
+    };
+
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <div className="w-full max-w-md p-8 space-y-8 bg-white text-black rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold text-center">Create an Account</h2>
-                {error && <p className="text-red-500 text-center">{error}</p>}
                 {successMessage && <p className="text-green-500 text-center">{successMessage}</p>}
 
                 {!isRegistered ? (
@@ -163,7 +166,7 @@ const Register = () => {
                                 className="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-                        <div className="flex justify-between gap-2"> {/* Added gap here */}
+                        <div className="flex justify-between gap-2">
                             <button onClick={handleVerify} className="w-1/2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-md transition duration-300">
                                 Submit Code
                             </button>
@@ -183,6 +186,8 @@ const Register = () => {
                     <Link href="/login" className="text-blue-600 hover:underline">Login</Link>
                 </p>
             </div>
+
+            {error && <ErrorPopup message={error} onClose={handleCloseError} />} {/* Render ErrorPopup if error exists */}
         </div>
     );
 };

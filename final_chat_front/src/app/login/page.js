@@ -5,18 +5,19 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import http from "@/plugins/http";
 import useAuthStore from '@/stores/authStore';
+import ErrorPopup from "@/components/ErrorPopup"; // Import the ErrorPopup component
 
 const Login = () => {
     const router = useRouter();
     const [emailOrUsername, setEmailOrUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [error, setError] = useState(null); // Change initial state to null for better handling
     const [successMessage, setSuccessMessage] = useState('');
     const { setIsLoggedIn } = useAuthStore();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        setError(null); // Reset error state on form submit
         setSuccessMessage('');
 
         try {
@@ -25,9 +26,9 @@ const Login = () => {
                 password: password,
             });
             if (res.success) {
-                setIsLoggedIn(true)
+                setIsLoggedIn(true);
                 setSuccessMessage('Login successful! Redirecting...');
-                await router.push('/dashboard');
+                await router.push('/profile');
             } else {
                 setError(res.error || 'Invalid login credentials. Please try again.');
             }
@@ -37,11 +38,14 @@ const Login = () => {
         }
     };
 
+    const handleCloseError = () => {
+        setError(null); // Close the error popup
+    };
+
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <div className="w-full max-w-md p-8 space-y-8 bg-white text-black rounded-lg shadow-md">
                 <h2 className="text-2xl font-bold text-center">Login</h2>
-                {error && <p className="text-red-500 text-center">{error}</p>}
                 {successMessage && <p className="text-green-500 text-center">{successMessage}</p>}
 
                 <form className="space-y-6" onSubmit={handleSubmit}>
@@ -66,7 +70,7 @@ const Login = () => {
                         />
                     </div>
                     <button type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-md transition duration-300">
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-md transition duration-300">
                         Login
                     </button>
                 </form>
@@ -80,8 +84,9 @@ const Login = () => {
                         <Link href="/password-recovery" className="text-blue-600 hover:underline">Password Recovery</Link>
                     </p>
                 </div>
-
             </div>
+
+            {error && <ErrorPopup message={error} onClose={handleCloseError} />} {/* Render ErrorPopup if error exists */}
         </div>
     );
 };

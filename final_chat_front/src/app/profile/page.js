@@ -10,6 +10,7 @@ import ChangeNamePopup from "@/components/ChangeNamePopup";
 import ChangeEmailPopup from "@/components/ChangeEmailPopup";
 import ChangePasswordPopup from "@/components/ChangePasswordPopup";
 import DeleteUserPopup from "@/components/DeleteUserPopup";
+import Loading from "@/components/Loading"; // Import the Loading component
 
 const ProfilePage = () => {
     const [error, setError] = useState(null);
@@ -19,14 +20,15 @@ const ProfilePage = () => {
     const [bio, setBio] = useState('');
     const [joined, setJoined] = useState('');
     const [online, setOnline] = useState('');
+    const [loading, setLoading] = useState(true); // Loading state
     const router = useRouter();
     const { setIsLoggedIn, setChange } = useAuthStore();
     const [isEditingBio, setIsEditingBio] = useState(false);
     const [isBioChanged, setIsBioChanged] = useState(false);
     const [showChangeName, setShowChangeName] = useState(false);
     const [showChangeEmail, setShowChangeEmail] = useState(false);
-    const [showChangePassword, setShowChangePassword] = useState(false); // New state
-    const [showDeleteUser, setShowDeleteUser] = useState(false); // New state
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [showDeleteUser, setShowDeleteUser] = useState(false);
 
     const handleBioChange = (e) => {
         setBio(e.target.value);
@@ -91,6 +93,7 @@ const ProfilePage = () => {
             console.error("Error uploading avatar:", error);
         }
     }
+
     const handleNameChange = async (newName, password) => {
         try {
             checkCookies()
@@ -102,6 +105,7 @@ const ProfilePage = () => {
             console.error("Error changing name:", error);
         }
     };
+
     const handleEmailChange = async (newEmail, password) => {
         try {
             checkCookies()
@@ -126,16 +130,18 @@ const ProfilePage = () => {
             return { error: 'Failed to verify email. Please try again.' };
         }
     };
+
     const handlePasswordChange = async (newPassword, password) => {
         try {
             checkCookies()
-            const res = await http.post('/private/change-password', {newPassword, password }, false);
+            const res = await http.post('/private/change-password', { newPassword, password }, false);
             if (res.error) return setError(res.error);
             setShowChangePassword(false)
         } catch (error) {
             console.error("Error changing password:", error);
         }
     };
+
     const handlePasswordVerification = async (password) => {
         try {
             checkCookies()
@@ -174,6 +180,7 @@ const ProfilePage = () => {
 
     useEffect(() => {
         const getUser = async () => {
+            setLoading(true); // Set loading to true before fetching data
             try {
                 const res = await http.get('/private/get-user', true);
                 if (res.error) return setError(res.error);
@@ -186,11 +193,18 @@ const ProfilePage = () => {
                 setOnline(res.data.online ? new Date(res.data.online).toLocaleString() : 'N/A');
             } catch (error) {
                 console.error('Error fetching protected data:', error);
+            } finally {
+                setLoading(false); // Set loading to false after fetching data
             }
         };
 
         getUser();
     }, []);
+
+    // Render loading state if loading is true
+    if (loading) {
+        return <Loading message="Loading your profile..." />;
+    }
 
     return (
         <div className="bg-gray-100 flex pt-5 pb-52 justify-center">
