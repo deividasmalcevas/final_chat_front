@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import http from "@/plugins/http";
 import sendNotification from '@/plugins/notification';
-import ReactionsMenu from './ReactionsMenu';
-import ReactionsDisplay from './ReactionsDisplay';
+import MessageList from './MessageList';
+import MessageInput from './MessageInput';
+import ConfirmationPopup from './ConfirmationPopup';
+import io from 'socket.io-client'; // Import Socket.IO
 
 const ChatBox = ({ user, type, roomId }) => {
     const [message, setMessage] = useState('');
@@ -12,64 +14,107 @@ const ChatBox = ({ user, type, roomId }) => {
     const [conName, setConName] = useState(null);
     const [conOwner, setOwner] = useState(null);
     const [visibleMenuIndex, setVisibleMenuIndex] = useState(null);
-    const chatEndRef = useRef(null);
     const [current, setCurrent] = useState([]);
     const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+    const chatEndRef = useRef(null);
     const router = useRouter();
-
-
     
+    // Initialize socket connection
+    const socket = useRef(null); // Use ref to store socket instance
+
     useEffect(() => {
-       
+        // Connect to the server
+        socket.current = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:1010'); // Update to your server URL
+    
+        // Emit user login event
+        socket.current.emit('user_login', { _id: current._id, username: current.username });
+    
+        // Join the specific room for the conversation
+        if (conID) {
+            socket.current.emit('join_room', conID);
+        }
+    
+        socket.current.on('message', (newMessage) => {
+            setChatHistory((prevChatHistory) => {
+                // Check if the message already exists
+                const messageIndex = prevChatHistory.findIndex(message => message._id === newMessage._id);
+        
+                if (messageIndex > -1) {
+                    // Update the existing message
+                    const updatedHistory = [...prevChatHistory];
+                    updatedHistory[messageIndex] = newMessage; // Update the message
+                    return updatedHistory;
+                } else {
+                    // Add the new message if it doesn't exist
+                    return [...prevChatHistory, newMessage];
+                }
+            });
+        });
+
+        socket.current.on('message_deleted', (messageId) => {
+            setChatHistory((prevChatHistory) => 
+                prevChatHistory.filter(message => message._id !== messageId)
+            );
+        });
+    
+        return () => {
+            socket.current.emit('user_logout', { _id: current._id });
+            socket.current.disconnect(); // Clean up on unmount
+        };
+    }, [user, conID]); 
+    
+  
+
+    useEffect(() => {
         const getUser = async () => {
             try {
                 const res = await http.get('/private/get-user', true);
-                if (res.error) return setError(res.error);
+                if (res.error) return console.error(res.error);
                 setCurrent(res.data);
             } catch (error) {
                 console.error('Error fetching protected data:', error);
             }
         };
-
         getUser();
     }, []);
 
     useEffect(() => {
-       
         const fetchData = async () => {
             await GetConvoData();
         };
-
         fetchData();
     }, [type, roomId]);
 
-    useEffect(() => {
-       
-        if (chatEndRef.current) {
-            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [chatHistory]);
-
     const handleSendMessage = async (e) => {
         e.preventDefault();
-       
+        if (!message.trim()) return; // Prevent sending empty messages
+    
         try {
             let res;
+    
             if (type === 'private') {
                 res = await http.post(`/private/send-private-msg`, { user, msg: message });
-                if (res.success && message.trim()) {
-                    await sendNotification(user._id, "You have received a new private message.", "message");
+                if (res.success) {
+                    const recipientId = user._id;
+                    socket.current.emit('check_user_status', recipientId, async (isConnected) => {
+                        if(!isConnected) return await sendNotification(user._id, "You have received a new private message.", "message");
+                        return;
+                    });
+                    console.log('here')
                 }
+            } else if (type === 'public') {
+                res = await http.post(`/private/send-public-msg`, { conID, msg: message });
             }
-            if (type === 'public') {
-                res = await http.post(`/private/send-prublic-msg`, { roomId: roomId, msg: message });
-            }
+    
             if (res.success) {
-                if (message.trim()) {
-                    setConID(res.data._id);
-                    setChatHistory(res.data.messages);
-                    setMessage('');
-                }
+                const newMessage = res.data.messages[res.data.messages.length - 1];
+    
+                setConID(res.data._id);
+                setChatHistory(res.data.messages); // Update chat history
+                setMessage('');
+    
+                // Emit message to the correct room
+                socket.current.emit('message', { ...newMessage, conID }); // Include conID
             } else {
                 console.error('Failed to send message.');
             }
@@ -79,13 +124,11 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const GetConvoData = async () => {
-       
         try {
             let res;
             if (type === 'private') {
                 res = await http.get(`/private/get-private-con/${user._id}`, true);
-            }
-            if (type === 'public') {
+            } else if (type === 'public') {
                 res = await http.get(`/private/get-room/${roomId}`, true);
             }
             if (res.success) {
@@ -104,11 +147,23 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleAddReaction = async (messageId, reaction) => {
-       
         try {
             const res = await http.post(`/private/add-msg-reaction`, { conID, messageId, reaction });
+            
             if (res.success) {
-                return GetConvoData();
+                const updatedMessage = res.data;
+    
+                setChatHistory((prevChatHistory) => {
+                    return prevChatHistory.map((message) => {
+                        if (message._id === updatedMessage._id) {
+                            return updatedMessage; 
+                        }
+                        return message; 
+                    });
+                });
+    
+                updatedMessage.conID = conID;
+                socket.current.emit('reaction', updatedMessage);
             }
         } catch (err) {
             console.error('Failed to add reaction:', err);
@@ -116,45 +171,24 @@ const ChatBox = ({ user, type, roomId }) => {
     };
 
     const handleDeleteMessage = async (messageId) => {
-       
         try {
             const res = await http.post(`/private/del-msg`, { conID, messageId });
             if (res.success) {
-                return GetConvoData();
+                socket.current.emit('delete_message', { conID, messageId });
+                return GetConvoData(); // Optionally refresh the conversation data
             }
         } catch (err) {
             console.error('Failed to delete message:', err);
         }
     };
 
-    const handleReactionClick = (reactionType, messageId) => {
-       
-        const reactionMap = {
-            'likes': '👍',
-            'hearts': '❤️',
-            'laughs': '😂',
-            'sads': '😢',
-        };
-
-        const emoji = reactionMap[reactionType];
-        if (emoji) {
-            handleAddReaction(messageId, emoji);
-        }
-    };
-
-    const toggleReactionMenu = (index) => {
-        setVisibleMenuIndex(prevIndex => (prevIndex === index ? null : index));
-    };
-
     const handleDeleteConversation = async () => {
-       
         try {
             let res;
             if (type === 'private') {
                 res = await http.post(`/private/del-convo`, { conID });
-            }
-            if (type === 'public') {
-                res = await http.post(`/private/delete-room`, { roomId });
+            } else if (type === 'public') {
+                res = await http.post(`/private/delete-room`, { conID });
             }
             if (res.success) {
                 if (type === 'public') {
@@ -171,13 +205,19 @@ const ChatBox = ({ user, type, roomId }) => {
         }
     };
 
+    const getConfirmationMessage = () => {
+        if (type === "private") {
+            return `Are you sure you want to delete this conversation with ${user.username}?`;
+        } else if (type === "public") {
+            return "Are you sure you want to delete this room?";
+        }
+    };
+
     const navigateToUser = (username) => {
-       
         router.push(`/user/${username}`);
     };
 
     const navigateToRooms = () => {
-       
         router.push(`/rooms`);
     };
 
@@ -208,120 +248,29 @@ const ChatBox = ({ user, type, roomId }) => {
                     <span className="text-black font-bold text-2xl">{conName}</span>
                 </div>
             )}
-            <div className="border bg-white border-gray-300 rounded-md h-64 p-4 overflow-y-auto">
-                {chatHistory.map((chat, index) => {
-                    const isSender = current._id === chat.senderId;
 
-                    return (
-                        <div key={index} className={`mb-2 ${!isSender ? 'text-right' : 'text-left'}`}>
-                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
-                                {!isSender && (
-                                    <img
-                                        src={chat.avatar}
-                                        alt={`${chat.sender}'s avatar`}
-                                        className="h-8 w-8 rounded-full mr-2 cursor-pointer"
-                                        onClick={() => navigateToUser(chat.sender)}
-                                    />
-                                )}
-                                <span
-                                    className={`font-bold text-black cursor-pointer`}
-                                    onClick={() => navigateToUser(chat.sender)}
-                                >
-                                    {chat.sender}
-                                </span>
-                                {isSender && (
-                                    <img
-                                        src={chat.avatar}
-                                        alt={`${chat.sender}'s avatar`}
-                                        className="h-8 w-8 rounded-full ml-2 cursor-pointer"
-                                        onClick={() => navigateToUser(chat.sender)}
-                                    />
-                                )}
-                            </div>
-                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
-                                <span className={`${!isSender ? 'bg-green-800 text-white' : 'bg-blue-500 text-white'} p-2 rounded`}>
-                                    {chat.content}
-                                </span>
-                            </div>
-                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
-                                {isSender && (
-                                    <button
-                                        className="text-red-500 ml-3"
-                                        onClick={() => handleDeleteMessage(chat._id)}
-                                    >
-                                        🗑️
-                                    </button>
-                                )}
-                                <span className="text-xs text-gray-500">
-                                    {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                {!isSender && (
-                                    <div className="relative">
-                                        <button className="text-gray-500 ml-3"
-                                                onClick={() => toggleReactionMenu(index)}
-                                        >
-                                            ...
-                                        </button>
-                                        {visibleMenuIndex === index && (
-                                            <ReactionsMenu
-                                                messageId={chat._id}
-                                                handleAddReaction={handleAddReaction}
-                                                closeMenu={() => setVisibleMenuIndex(null)}
-                                            />
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <div className={`flex items-center ${isSender ? 'justify-end' : 'justify-start'}`}>
-                                <ReactionsDisplay
-                                    reactions={chat.reactions}
-                                    onReactionClick={(reactionType) => handleReactionClick(reactionType, chat._id)}
-                                    currentUser={current}
-                                />
-                            </div>
-                        </div>
-                    );
-                })}
-                <div ref={chatEndRef} />
-            </div>
-
-            <form onSubmit={handleSendMessage} className="flex mt-4">
-                <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="border border-gray-300 rounded-l-md p-2 flex-grow text-black"
-                />
-                <button type="submit" className="bg-blue-500 text-white rounded-r-md px-4">Send</button>
-            </form>
-
+            <MessageList
+                chatHistory={chatHistory}
+                currentUser={current}
+                onDeleteMessage={handleDeleteMessage}
+                onAddReaction={handleAddReaction}
+                onNavigateToUser={navigateToUser}
+                onToggleReactionMenu={setVisibleMenuIndex}
+                visibleMenuIndex={visibleMenuIndex}
+            />
+            <MessageInput
+                message={message}
+                onMessageChange={(e) => setMessage(e.target.value)}
+                onSendMessage={handleSendMessage}
+            />
             {showConfirmPopup && (
-                <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center">
-                    <div className="bg-white text-black p-4 rounded shadow-lg">
-                        {type === "private" && (
-                            <p>Are you sure you want to delete this conversation with {user.username}?</p>
-                        )}
-                        {type === "public" && (
-                            <p>Are you sure you want to delete this room?</p>
-                        )}
-                        <div className="flex justify-end mt-4">
-                            <button
-                                className="bg-red-500 text-white px-4 py-2 rounded mr-2"
-                                onClick={handleDeleteConversation}
-                            >
-                                Yes, Delete
-                            </button>
-                            <button
-                                className="bg-gray-300 text-black px-4 py-2 rounded"
-                                onClick={() => setShowConfirmPopup(false)}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ConfirmationPopup
+                    onDelete={handleDeleteConversation}
+                    onCancel={() => setShowConfirmPopup(false)}
+                    message={getConfirmationMessage()}
+                />
             )}
+            <div ref={chatEndRef} />
         </div>
     );
 };
