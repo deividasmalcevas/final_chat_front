@@ -6,6 +6,7 @@ import useAuthStore from '@/stores/authStore';
 import http from '@/plugins/http';
 import { useRouter } from 'next/navigation';
 import NotificationsDropdown from './NotificationsDropdown';
+import StatusDropdown from './StatusDropdown'; // Import the new StatusDropdown component
 
 const Toolbar = () => {
     const router = useRouter();
@@ -13,10 +14,12 @@ const Toolbar = () => {
     const [error, setError] = useState(null);
     const [avatar, setAvatar] = useState(null);
     const [username, setUsername] = useState(null);
+    const [status, setStatus] = useState('offline');
     const [menuOpen, setMenuOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [dropdownOpen, setDropdownOpen] = useState(false); // State for dropdown
     const menuRef = useRef(null);
 
     useEffect(() => {
@@ -28,6 +31,7 @@ const Toolbar = () => {
                     if (res.error) return setError(res.error);
                     setAvatar(res.data.avatar);
                     setUsername(res.data.username);
+                    setStatus(res.data.status);
                 } catch (error) {
                     console.error('Error fetching protected data:', error);
                 }
@@ -36,6 +40,7 @@ const Toolbar = () => {
         } else {
             setAvatar(null);
             setUsername(null);
+            setStatus('offline');
         }
     }, [isLoggedIn, change]);
 
@@ -47,6 +52,7 @@ const Toolbar = () => {
         const handleClickOutside = (event) => {
             if (menuRef.current && !menuRef.current.contains(event.target)) {
                 setMenuOpen(false);
+                setDropdownOpen(false); // Close dropdown if clicked outside
             }
         };
 
@@ -64,6 +70,7 @@ const Toolbar = () => {
         setMenuOpen(false);
         setAvatar(null);
         setUsername(null);
+        setStatus('offline');
         router.push('/login');
     };
 
@@ -93,6 +100,28 @@ const Toolbar = () => {
 
     const closeMenu = () => {
         setMenuOpen(false);
+    };
+
+    const handleStatusChange = async (newStatuses) => {
+        
+        setStatus(newStatuses); // Update the local state
+
+        try {
+            const res = await http.post('/private/change-status', { status: newStatuses });
+          
+        } catch (error) {
+            console.error('Error sending status to backend:', error);
+        }
+    
+    };
+
+    // Status color mapping
+    const statusColors = {
+        online: 'bg-green-500',
+        offline: 'bg-gray-500',
+        away: 'bg-yellow-500',
+        busy: 'bg-red-500',
+        do_not_disturb: 'bg-purple-500',
     };
 
     return (
@@ -137,12 +166,17 @@ const Toolbar = () => {
                                 onClose={() => setNotificationsOpen(false)}
                             />
                         </div>
-                        <img
-                            src={avatar}
-                            alt="Avatar"
-                            className="h-10 rounded-full cursor-pointer"
-                            onClick={toggleMenu}
-                        />
+
+                        {/* User Status Indicator */}
+                        <div className="relative">
+                            <span className={`absolute top-0 right-0 block w-3 h-3 cursor-pointer rounded-full ${statusColors[status]}`} onClick={() => setDropdownOpen(!dropdownOpen)}></span>
+                            <img
+                                src={avatar}
+                                alt="Avatar"
+                                className="h-10 rounded-full cursor-pointer"
+                                onClick={toggleMenu}
+                            />
+                        </div>
 
                         {menuOpen && (
                             <div
@@ -159,15 +193,24 @@ const Toolbar = () => {
                                 </button>
                             </div>
                         )}
+
+                        {/* Render Status Dropdown */}
+                        {dropdownOpen && (
+                            <StatusDropdown
+                                currentStatus={status}
+                                onStatusChange={handleStatusChange}
+                                closeDropdown={() => setDropdownOpen(false)}
+                            />
+                        )}
                     </div>
                 ) : (
                     <div className="flex gap-3">
-                        <button className="button-62" role="button">
-                            <Link href="/register" className="hover:text-gray-300">Register</Link>
-                        </button>
-                        <button className="button-62" role="button">
-                            <Link href="/login" className="hover:text-gray-300">Login</Link>
-                        </button>
+                        <Link href="/register" className="hover:text-gray-300">
+                            <button className="button-62" role="button">Register</button>
+                        </Link>
+                        <Link href="/login" className="hover:text-gray-300">
+                            <button className="button-62" role="button">Login</button>
+                        </Link>
                     </div>
                 )}
             </div>
